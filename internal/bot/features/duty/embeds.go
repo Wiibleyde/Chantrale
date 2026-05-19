@@ -103,7 +103,7 @@ func formatList(names []string, empty string) string {
 
 	var sb strings.Builder
 	for _, name := range names {
-		sb.WriteString("- " + name + "\n")
+		sb.WriteString("- ");sb.WriteString(name);sb.WriteString("\n")
 	}
 	return sb.String()
 }

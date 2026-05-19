@@ -27,8 +27,16 @@ func HandleRadioAddModal(e *events.ModalSubmitInteractionCreate) {
 	name := e.Data.Text("name")
 	frequency := e.Data.Text("frequency")
 
-	chanID := snowflake.MustParse(channelIDStr)
-	msgID := snowflake.MustParse(messageIDStr)
+	chanID, err := snowflake.Parse(channelIDStr)
+	if err != nil {
+		helpers.RespondEphemeral(e, "Erreur: identifiant de salon invalide.")
+		return
+	}
+	msgID, err := snowflake.Parse(messageIDStr)
+	if err != nil {
+		helpers.RespondEphemeral(e, "Erreur: identifiant de message invalide.")
+		return
+	}
 
 	msg, err := e.Client().Rest.GetMessage(chanID, msgID)
 	if err != nil {
@@ -85,8 +93,16 @@ func HandleRadioEditModal(e *events.ModalSubmitInteractionCreate) {
 	newName := e.Data.Text("name")
 	newFreq := e.Data.Text("frequency")
 
-	chanID := snowflake.MustParse(channelIDStr)
-	msgID := snowflake.MustParse(messageIDStr)
+	chanID, err := snowflake.Parse(channelIDStr)
+	if err != nil {
+		helpers.RespondEphemeral(e, "Erreur: identifiant de salon invalide.")
+		return
+	}
+	msgID, err := snowflake.Parse(messageIDStr)
+	if err != nil {
+		helpers.RespondEphemeral(e, "Erreur: identifiant de message invalide.")
+		return
+	}
 
 	msg, err := e.Client().Rest.GetMessage(chanID, msgID)
 	if err != nil {

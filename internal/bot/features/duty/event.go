@@ -195,6 +195,9 @@ func WarmMemberRoleCache(client *bot.Client, guildIDs []snowflake.ID) {
 }
 
 func scheduleEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
+	if dm.MessageID == nil {
+		return
+	}
 	key := *dm.MessageID
 
 	embedDebounceMu.Lock()

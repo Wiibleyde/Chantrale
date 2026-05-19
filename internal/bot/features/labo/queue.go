@@ -29,6 +29,7 @@ type LaboQueue struct {
 	mu      sync.Mutex
 	entries []*LaboEntry
 	ticker  *time.Ticker
+	stopCh  chan struct{}
 	client  *bot.Client
 }
 
@@ -48,43 +49,54 @@ func (q *LaboQueue) Add(entry *LaboEntry) {
 
 	if q.ticker == nil {
 		q.ticker = time.NewTicker(10 * time.Second)
+		q.stopCh = make(chan struct{})
 		go q.run()
 	}
 }
 
 func (q *LaboQueue) run() {
-	for range q.ticker.C {
-		q.mu.Lock()
-		now := time.Now()
-		var remaining []*LaboEntry
-		var toNotify []*LaboEntry
-
-		for _, e := range q.entries {
-			elapsed := now.Sub(e.StartTime)
-			if elapsed >= time.Duration(e.Time)*time.Minute {
-				toNotify = append(toNotify, e)
-			} else {
-				remaining = append(remaining, e)
-			}
-		}
-		q.entries = remaining
-
-		if len(q.entries) == 0 && q.ticker != nil {
-			q.ticker.Stop()
-			q.ticker = nil
-		}
-
-		client := q.client
-		q.mu.Unlock()
-
-		for _, e := range toNotify {
-			if client != nil {
-				notifyCompletion(client, e)
-			}
-		}
-
-		if q.ticker == nil {
+	for {
+		select {
+		case <-q.stopCh:
 			return
+		case <-q.ticker.C:
+			q.mu.Lock()
+			now := time.Now()
+			var remaining []*LaboEntry
+			var toNotify []*LaboEntry
+
+			for _, e := range q.entries {
+				elapsed := now.Sub(e.StartTime)
+				if elapsed >= time.Duration(e.Time)*time.Minute {
+					toNotify = append(toNotify, e)
+				} else {
+					remaining = append(remaining, e)
+				}
+			}
+			q.entries = remaining
+
+			if len(q.entries) == 0 {
+				q.ticker.Stop()
+				q.ticker = nil
+				close(q.stopCh)
+				q.stopCh = nil
+				q.mu.Unlock()
+				for _, e := range toNotify {
+					if q.client != nil {
+						notifyCompletion(q.client, e)
+					}
+				}
+				return
+			}
+
+			client := q.client
+			q.mu.Unlock()
+
+			for _, e := range toNotify {
+				if client != nil {
+					notifyCompletion(client, e)
+				}
+			}
 		}
 	}
 }
@@ -99,6 +111,8 @@ func (q *LaboQueue) CancelByMessageID(messageID snowflake.ID) (bool, *LaboEntry)
 			if len(q.entries) == 0 && q.ticker != nil {
 				q.ticker.Stop()
 				q.ticker = nil
+				close(q.stopCh)
+				q.stopCh = nil
 			}
 			return true, e
 		}

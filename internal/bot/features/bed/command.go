@@ -219,6 +219,8 @@ func handleRemove(e *events.ApplicationCommandInteractionCreate) {
 
 	if err := database.DB.Where("guild_id = ?", guildID.String()).Delete(&models.BedAssignment{}).Error; err != nil {
 		logger.Error("Error deleting bed assignments", "error", err)
+		helpers.RespondEphemeral(e, "Erreur lors de la suppression des assignations.")
+		return
 	}
 
 	if err := database.DB.Delete(&bm).Error; err != nil {
