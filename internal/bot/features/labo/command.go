@@ -94,7 +94,7 @@ func drugsChoices() []discord.ApplicationCommandOptionChoiceString {
 
 func diseasesChoices() []discord.ApplicationCommandOptionChoiceString {
 	return []discord.ApplicationCommandOptionChoiceString{
-		{Name: "Négatif", Value: "Négatif"},
+		{Name: "Négatif", Value: "Négatif"}, {Name: "Positif", Value: "Positif"},
 	}
 }
 
