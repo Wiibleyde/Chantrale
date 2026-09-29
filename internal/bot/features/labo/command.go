@@ -25,16 +25,6 @@ var Commands = []discord.ApplicationCommandCreate{
 				Options:     commonLaboOptions(bloodgroupChoices()),
 			},
 			discord.ApplicationCommandOptionSubCommand{
-				Name:        "alcohole",
-				Description: "Analyse de taux d'alcoolémie",
-				Options:     commonLaboOptions(alcoholeChoices()),
-			},
-			discord.ApplicationCommandOptionSubCommand{
-				Name:        "drugs",
-				Description: "Analyse de dépistage de drogues",
-				Options:     drugsOptions(),
-			},
-			discord.ApplicationCommandOptionSubCommand{
 				Name:        "diseases",
 				Description: "Analyse de maladies",
 				Options:     commonLaboOptions(diseasesChoices()),
@@ -51,44 +41,10 @@ func commonLaboOptions(resultChoices []discord.ApplicationCommandOptionChoiceStr
 	}
 }
 
-func drugsOptions() []discord.ApplicationCommandOption {
-	return []discord.ApplicationCommandOption{
-		discord.ApplicationCommandOptionString{Name: "nom_prenom", Description: "Nom et prénom du patient", Required: true},
-		discord.ApplicationCommandOptionString{
-			Name:        "depistage",
-			Description: "Type de dépistage",
-			Required:    true,
-			Choices: []discord.ApplicationCommandOptionChoiceString{
-				{Name: "Cannabis", Value: "Cannabis"},
-				{Name: "Cocaïne", Value: "Cocaïne"},
-				{Name: "Héroïne", Value: "Héroïne"},
-				{Name: "Amphétamines", Value: "Amphétamines"},
-				{Name: "Ecstasy", Value: "Ecstasy"},
-				{Name: "Méthamphétamine", Value: "Méthamphétamine"},
-			},
-		},
-		discord.ApplicationCommandOptionString{Name: "resultat", Description: "Résultat de l'analyse (optionnel)", Required: false, Choices: drugsChoices()},
-		discord.ApplicationCommandOptionString{Name: "time", Description: "Durée de l'analyse en minutes (optionnel, 1-3 chiffres)", Required: false},
-	}
-}
-
 func bloodgroupChoices() []discord.ApplicationCommandOptionChoiceString {
 	return []discord.ApplicationCommandOptionChoiceString{
 		{Name: "O+", Value: "O+"}, {Name: "A+", Value: "A+"}, {Name: "B+", Value: "B+"}, {Name: "AB+", Value: "AB+"},
 		{Name: "O-", Value: "O-"}, {Name: "A-", Value: "A-"}, {Name: "B-", Value: "B-"}, {Name: "AB-", Value: "AB-"},
-	}
-}
-
-func alcoholeChoices() []discord.ApplicationCommandOptionChoiceString {
-	return []discord.ApplicationCommandOptionChoiceString{
-		{Name: "Négatif", Value: "Négatif"}, {Name: "Faible", Value: "Faible"},
-		{Name: "Moyen", Value: "Moyen"}, {Name: "Élevé", Value: "Élevé"},
-	}
-}
-
-func drugsChoices() []discord.ApplicationCommandOptionChoiceString {
-	return []discord.ApplicationCommandOptionChoiceString{
-		{Name: "Négatif", Value: "Négatif"}, {Name: "Positif", Value: "Positif"},
 	}
 }
 
@@ -113,11 +69,6 @@ func HandleCommand(e *events.ApplicationCommandInteractionCreate) {
 	patientName := data.String("nom_prenom")
 
 	analyseType := subName
-	if subName == "drugs" {
-		if depistage, ok := data.OptString("depistage"); ok {
-			analyseType = depistage
-		}
-	}
 
 	analyseTime := defaultTime(subName)
 	if timeStr, ok := data.OptString("time"); ok {
@@ -177,10 +128,6 @@ func defaultTime(subCmd string) int {
 	switch subCmd {
 	case "bloodgroup":
 		return 5
-	case "alcohole":
-		return 3
-	case "drugs":
-		return 5
 	case "diseases":
 		return 10
 	default:
@@ -201,14 +148,6 @@ func randomResult(subCmd string) string {
 		pool = []weighted{
 			{"O+", 34}, {"A+", 28}, {"B+", 20}, {"AB+", 2},
 			{"O-", 7}, {"A-", 6}, {"B-", 2}, {"AB-", 1},
-		}
-	case "alcohole":
-		pool = []weighted{
-			{"Négatif", 90}, {"Faible", 7}, {"Moyen", 2}, {"Élevé", 1},
-		}
-	case "drugs":
-		pool = []weighted{
-			{"Négatif", 90}, {"Positif", 10},
 		}
 	case "diseases":
 		return "Négatif"

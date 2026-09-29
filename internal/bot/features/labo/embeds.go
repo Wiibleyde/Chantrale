@@ -12,10 +12,6 @@ func GetAnalyseTypeName(t string) string {
 	switch t {
 	case "bloodgroup":
 		return "Groupe Sanguin"
-	case "alcohole":
-		return "Taux d'Alcoolémie"
-	case "drugs":
-		return "Drogues"
 	case "diseases":
 		return "Maladies"
 	default:
