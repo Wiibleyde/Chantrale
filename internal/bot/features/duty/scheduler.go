@@ -3,6 +3,7 @@ package duty
 import (
 	"time"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -86,7 +87,7 @@ func stripDutyRoles(client *bot.Client, dm models.DutyManager) {
 		return
 	}
 
-	members, err := client.Rest.GetMembers(guildID, 1000, 0)
+	members, err := helpers.GuildMembers(client, guildID)
 	if err != nil {
 		logger.Error("Error fetching members for role strip", "guild", dm.GuildID, "error", err)
 		return

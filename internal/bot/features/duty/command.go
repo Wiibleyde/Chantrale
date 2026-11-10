@@ -86,7 +86,7 @@ func handleAdd(e *events.ApplicationCommandInteractionCreate) {
 		}
 	}
 
-	members, err := client.Rest.GetMembers(guildID, 1000, 0)
+	members, err := helpers.GuildMembers(client, guildID)
 	if err != nil {
 		helpers.RespondEphemeral(e, "Erreur lors de la récupération des membres.")
 		return
