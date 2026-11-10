@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"LsmsBot/internal/api"
@@ -15,12 +16,14 @@ import (
 	"LsmsBot/internal/bot/features/mortuary"
 	"LsmsBot/internal/bot/features/radio"
 	"LsmsBot/internal/bot/features/statistics"
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/bot/router"
 	"LsmsBot/internal/config"
 	"LsmsBot/internal/logger"
 
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/cache"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
@@ -67,6 +70,11 @@ func Run() {
 		bot.WithGatewayConfigOpts(
 			gateway.WithIntents(gateway.IntentGuilds, gateway.IntentGuildMembers),
 		),
+		// Cache guilds, roles and members from gateway events so features read
+		// member lists locally instead of calling GetMembers over REST.
+		bot.WithCacheConfigOpts(
+			cache.WithCaches(cache.FlagGuilds, cache.FlagRoles, cache.FlagMembers),
+		),
 	)
 	if err != nil {
 		logger.Fatal("Error creating Discord client", "error", err)
@@ -74,7 +82,13 @@ func Run() {
 
 	labo.Queue.SetClient(client)
 
-	client.AddEventListeners(bot.NewListenerFunc(duty.HandleGuildMemberUpdate))
+	client.AddEventListeners(
+		bot.NewListenerFunc(duty.HandleGuildMemberUpdate),
+		bot.NewListenerFunc(helpers.HandleGuildReady),
+		bot.NewListenerFunc(helpers.HandleGuildAvailable),
+		bot.NewListenerFunc(helpers.HandleGuildUnavailable),
+		bot.NewListenerFunc(helpers.HandleGuildLeave),
+	)
 
 	r := router.New()
 	duty.Register(r)
@@ -95,21 +109,33 @@ func Run() {
 	allCommands = append(allCommands, mortuary.Commands...)
 	allCommands = append(allCommands, statistics.Commands...)
 
+	// Ready is sent again every time the gateway has to re-identify (a resume
+	// sends Resumed instead). Startup work must only run once per process, and
+	// it runs in its own goroutine: events are dispatched synchronously from
+	// the gateway read loop, so slow REST calls here would delay heartbeat ACKs
+	// and make disgo drop the connection as a zombie, causing a reconnect.
+	var startupOnce sync.Once
 	client.AddEventListeners(bot.NewListenerFunc(func(e *events.Ready) {
 		logger.Info("Logged in", "user", e.User.Username)
 		embeds.Init(e.User.EffectiveAvatarURL())
-		duty.StartScheduler(client)
-		duty.InitPresence(client)
-		var guildSnowflakes []snowflake.ID
-		for _, guildID := range cfg.GuildIDs {
-			guildSnowflake := snowflake.MustParse(guildID)
-			guildSnowflakes = append(guildSnowflakes, guildSnowflake)
-			if _, err := e.Client().Rest.SetGuildCommands(e.Application.ID, guildSnowflake, allCommands); err != nil {
-				logger.Error("Cannot set commands", "guild", guildID, "error", err)
-			}
-		}
-		duty.WarmMemberRoleCache(client, guildSnowflakes)
-		logger.Info("Commands registered")
+		startupOnce.Do(func() {
+			appID := e.Application.ID
+			go func() {
+				duty.StartScheduler(client)
+				for _, guildID := range cfg.GuildIDs {
+					guildSnowflake, err := snowflake.Parse(guildID)
+					if err != nil {
+						logger.Error("Invalid guild ID in GUILD_IDS", "guild", guildID, "error", err)
+						continue
+					}
+					if _, err := client.Rest.SetGuildCommands(appID, guildSnowflake, allCommands); err != nil {
+						logger.Error("Cannot set commands", "guild", guildID, "error", err)
+					}
+				}
+				logger.Info("Commands registered")
+				duty.InitPresence(client)
+			}()
+		})
 	}))
 
 	ctx := context.Background()

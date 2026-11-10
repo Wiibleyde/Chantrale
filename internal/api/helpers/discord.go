@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"LsmsBot/internal/api/dto"
+	bothelpers "LsmsBot/internal/bot/helpers"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/snowflake/v2"
@@ -10,7 +11,7 @@ import (
 // MembersWithRole returns all guild members that have the given role.
 // Returns an empty (non-nil) slice when no members match.
 func MembersWithRole(client *bot.Client, guildID snowflake.ID, roleID snowflake.ID) ([]dto.MemberDTO, error) {
-	members, err := client.Rest.GetMembers(guildID, 1000, 0)
+	members, err := bothelpers.GuildMembers(client, guildID)
 	if err != nil {
 		return nil, err
 	}

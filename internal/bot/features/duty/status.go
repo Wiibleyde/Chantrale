@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -17,6 +18,11 @@ import (
 var (
 	guildCounts   = make(map[string][2]int) // [onDuty, onCall] per guild
 	guildCountsMu sync.Mutex
+
+	// lastPresence is the last status sent to the gateway, to avoid sending
+	// identical presence updates (they count against the gateway rate limit).
+	lastPresence   string
+	lastPresenceMu sync.Mutex
 )
 
 func setGuildCounts(guildID string, onDuty, onCall int) {
@@ -35,9 +41,17 @@ func updateBotPresence(client *bot.Client) {
 	guildCountsMu.Unlock()
 
 	status := fmt.Sprintf("%d en service • %d en astreinte", totalOnDuty, totalOffRadio)
+
+	lastPresenceMu.Lock()
+	defer lastPresenceMu.Unlock()
+	if status == lastPresence {
+		return
+	}
 	if err := client.SetPresence(context.Background(), gateway.WithWatchingActivity(status)); err != nil {
 		logger.Error("Error updating bot presence", "error", err)
+		return
 	}
+	lastPresence = status
 }
 
 func InitPresence(client *bot.Client) {
@@ -52,7 +66,7 @@ func InitPresence(client *bot.Client) {
 		if err != nil {
 			continue
 		}
-		members, err := client.Rest.GetMembers(guildID, 1000, 0)
+		members, err := helpers.GuildMembers(client, guildID)
 		if err != nil {
 			logger.Warn("Error fetching members for presence init", "guild", dm.GuildID, "error", err)
 			continue

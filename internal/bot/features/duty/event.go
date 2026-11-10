@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"LsmsBot/internal/bot/helpers"
 	"LsmsBot/internal/database"
 	"LsmsBot/internal/database/models"
 	"LsmsBot/internal/logger"
@@ -175,25 +176,6 @@ func sendLogMessages(
 	}
 }
 
-// WarmMemberRoleCache pre-populates the role cache for all members of the
-// given guilds so that the very first GuildMemberUpdate after startup has a
-// known previous state to diff against.
-func WarmMemberRoleCache(client *bot.Client, guildIDs []snowflake.ID) {
-	for _, guildID := range guildIDs {
-		members, err := client.Rest.GetMembers(guildID, 1000, 0)
-		if err != nil {
-			logger.Error("WarmMemberRoleCache: failed to fetch members", "guild", guildID.String(), "error", err)
-			continue
-		}
-		memberRoleCacheMu.Lock()
-		for _, m := range members {
-			key := guildID.String() + "-" + m.User.ID.String()
-			memberRoleCache[key] = m.RoleIDs
-		}
-		memberRoleCacheMu.Unlock()
-	}
-}
-
 func scheduleEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
 	if dm.MessageID == nil {
 		return
@@ -215,7 +197,7 @@ func scheduleEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.Dut
 }
 
 func performEmbedUpdate(client *bot.Client, guildID snowflake.ID, dm models.DutyManager) {
-	members, err := client.Rest.GetMembers(guildID, 1000, 0)
+	members, err := helpers.GuildMembers(client, guildID)
 	if err != nil {
 		logger.Error("Error fetching members for embed update", "guild", guildID.String(), "error", err)
 		return
